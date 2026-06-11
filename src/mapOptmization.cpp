@@ -18,9 +18,7 @@
 
 #include <gtsam/nonlinear/ISAM2.h>
 
-#include <GeographicLib/Geocentric.hpp>
-#include <GeographicLib/LocalCartesian.hpp>
-
+#include "gnss/gps_processor.h"
 #include "Scancontext.h"
 
 using namespace gtsam;
@@ -153,7 +151,7 @@ public:
     Eigen::Affine3f incrementalOdometryAffineFront;
     Eigen::Affine3f incrementalOdometryAffineBack;
 
-    GeographicLib::LocalCartesian gps_trans_;
+    GPSProcessor gps_processor_;
 
     // scancontext loop closure
     SCManager scManager;
@@ -197,6 +195,8 @@ public:
         downSizeFilterSurroundingKeyPoses.setLeafSize(surroundingKeyframeDensity, surroundingKeyframeDensity, surroundingKeyframeDensity); // for surrounding key poses of scan-to-map optimization
 
         br = std::make_unique<tf2_ros::TransformBroadcaster>(this);
+
+        gps_processor_.Configure(gpsExtrinsicTrans, gpsExtrinsicRot, gpsInitXYZ, gpsCentralMeridian);
 
         allocateMemory();
     }
@@ -278,24 +278,22 @@ public:
 
     void gpsHandler(const sensor_msgs::msg::NavSatFix::SharedPtr gpsMsg)
     {
-        if (gpsMsg->status.status != 0)
+        if (gpsMsg->status.status <= 0)
             return;
 
-        Eigen::Vector3d trans_local_;
-        static bool first_gps = false;
-        if (!first_gps) {
-            first_gps = true;
-            gps_trans_.Reset(gpsMsg->latitude, gpsMsg->longitude, gpsMsg->altitude);
+        if (!gps_processor_.getGnssInitStatus()) {
+            gps_processor_.InitOrigin(gpsMsg->latitude, gpsMsg->longitude, gpsMsg->altitude);
         }
 
-        gps_trans_.Forward(gpsMsg->latitude, gpsMsg->longitude, gpsMsg->altitude, trans_local_[0], trans_local_[1], trans_local_[2]);
+        gps_processor_.UpdatePosition(gpsMsg->latitude, gpsMsg->longitude, gpsMsg->altitude);
+        const Eigen::Vector3d trans_local = gps_processor_.GetLocalPosition();
 
         nav_msgs::msg::Odometry gps_odom;
         gps_odom.header = gpsMsg->header;
         gps_odom.header.frame_id = "map";
-        gps_odom.pose.pose.position.x = trans_local_[0];
-        gps_odom.pose.pose.position.y = trans_local_[1];
-        gps_odom.pose.pose.position.z = trans_local_[2];
+        gps_odom.pose.pose.position.x = trans_local.x();
+        gps_odom.pose.pose.position.y = trans_local.y();
+        gps_odom.pose.pose.position.z = trans_local.z();
         tf2::Quaternion quat_tf;
         quat_tf.setRPY(0.0, 0.0, 0.0);
         geometry_msgs::msg::Quaternion quat_msg;
@@ -521,13 +519,18 @@ public:
 
     void loopClosureThread()
     {
-        if (loopClosureEnableFlag == false)
+        if (!loopClosureEnableFlag) {
+            RCLCPP_WARN(get_logger(), "Loop closure thread exit: loopClosureEnableFlag=false");
             return;
+        }
 
-        rclcpp::Rate rate(loopClosureFrequency);
-        while (rclcpp::ok())
-        {
+        RCLCPP_INFO(get_logger(), "Loop closure thread started, frequency=%.2f Hz", loopClosureFrequency);
+        rclcpp::Rate rate(loopClosureFrequency > 0.0f ? loopClosureFrequency : 1.0f, get_clock());
+        while (rclcpp::ok()) {
             rate.sleep();
+            if (!loopClosureEnableFlag) {
+                continue;
+            }
             performRSLoopClosure();
             performSCLoopClosure();
             visualizeLoopClosure();
@@ -591,7 +594,7 @@ public:
 
         if (icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore)
             return;
-
+        std::cout << "ICP has converged and fitness score is " << icp.getFitnessScore() << std::endl;
         // publish corrected cloud
         if (pubIcpKeyFrames->get_subscription_count() != 0)
         {
@@ -683,7 +686,7 @@ public:
 
         if (icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore)
             return;
-
+        std::cout << "ICP has converged and fitness score is " << icp.getFitnessScore() << std::endl;
         // publish corrected cloud
         if (pubIcpKeyFrames->get_subscription_count() != 0)
         {
@@ -1479,7 +1482,7 @@ public:
                 noiseModel::Diagonal::shared_ptr gps_noise = noiseModel::Diagonal::Variances(Vector3);
                 gtsam::GPSFactor gps_factor(cloudKeyPoses3D->size(), gtsam::Point3(gps_x, gps_y, gps_z), gps_noise);
                 gtSAMgraph.add(gps_factor);
-
+                std::cout << "Added GPS factor with noise: " << noise_x << ", " << noise_y << ", " << noise_z << std::endl;
                 aLoopIsClosed = true;
                 break;
             }
@@ -1499,6 +1502,9 @@ public:
             // gtsam::noiseModel::Diagonal::shared_ptr noiseBetween = loopNoiseQueue[i];
             auto noiseBetween = loopNoiseQueue[i];
             gtSAMgraph.add(BetweenFactor<Pose3>(indexFrom, indexTo, poseBetween, noiseBetween));
+            RCLCPP_INFO(get_logger(), "Added loop factor: from=%d to=%d trans=(%.2f, %.2f, %.2f)",
+                        indexFrom, indexTo, poseBetween.translation().x(),
+                        poseBetween.translation().y(), poseBetween.translation().z());
         }
 
         loopIndexQueue.clear();
@@ -1816,7 +1822,9 @@ int main(int argc, char** argv)
     auto MO = std::make_shared<mapOptimization>(options);
     exec.add_node(MO);
 
-    RCLCPP_INFO(rclcpp::get_logger("rclcpp"), "\033[1;32m----> Map Optimization Started.\033[0m");
+    RCLCPP_INFO(MO->get_logger(), "\033[1;32m----> Map Optimization Started.\033[0m");
+    RCLCPP_INFO(MO->get_logger(), "loopClosureEnableFlag=%s, loopClosureFrequency=%.2f",
+                MO->loopClosureEnableFlag ? "true" : "false", MO->loopClosureFrequency);
 
     std::thread loopthread(&mapOptimization::loopClosureThread, MO);
     std::thread visualizeMapThread(&mapOptimization::visualizeGlobalMapThread, MO);

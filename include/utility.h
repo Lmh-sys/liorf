@@ -92,6 +92,10 @@ public:
     bool useGpsElevation;
     float gpsCovThreshold;
     float poseCovThreshold;
+    vector<double> gpsExtrinsicTrans;
+    vector<double> gpsExtrinsicRot;
+    vector<double> gpsInitXYZ;
+    int gpsCentralMeridian;
 
     // Save pcd
     bool savePCD;
@@ -188,6 +192,15 @@ public:
         get_parameter("gpsCovThreshold", gpsCovThreshold);
         declare_parameter<float>("poseCovThreshold", 25.0f);
         get_parameter("poseCovThreshold", poseCovThreshold);
+        declare_parameter<vector<double>>("gpsExtrinsicTrans", vector<double>{0.0, 0.0, 0.0});
+        get_parameter("gpsExtrinsicTrans", gpsExtrinsicTrans);
+        declare_parameter<vector<double>>("gpsExtrinsicRot",
+                                          vector<double>{1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0});
+        get_parameter("gpsExtrinsicRot", gpsExtrinsicRot);
+        declare_parameter<vector<double>>("gpsInitXYZ", vector<double>{0.0, 0.0, 0.0});
+        get_parameter("gpsInitXYZ", gpsInitXYZ);
+        declare_parameter<int>("gpsCentralMeridian", 117);
+        get_parameter("gpsCentralMeridian", gpsCentralMeridian);
 
         declare_parameter<bool>("savePCD", false);
         get_parameter("savePCD", savePCD);

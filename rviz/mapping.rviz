@@ -6,9 +6,12 @@ Panels:
       Expanded:
         - /Global Options1
         - /Base1/map1
-        - /Mapping1
-        - /Mapping1/Scan1
         - /Mapping1/LIO1/Shape1
+        - /Mapping1/GPS1
+        - /Mapping1/GPS1/Shape1
+        - /TF1
+        - /TF1/Frames1
+        - /TF1/Tree1/map1
       Splitter Ratio: 0.5
     Tree Height: 819
   - Class: rviz_common/Views
@@ -29,12 +32,12 @@ Visualization Manager:
           Reference Frame: lidar_link
           Value: false
         - Class: rviz_default_plugins/Axes
-          Enabled: true
+          Enabled: false
           Length: 5
           Name: map
           Radius: 0.4000000059604645
           Reference Frame: map
-          Value: true
+          Value: false
       Enabled: true
       Name: Base
     - Class: rviz_common/Group
@@ -48,7 +51,7 @@ Visualization Manager:
           Head Length: 0.20000000298023224
           Length: 0.30000001192092896
           Line Style: Billboards
-          Line Width: 0.30000001192092896
+          Line Width: 0.10000000149011612
           Name: Path
           Offset:
             X: 0
@@ -115,7 +118,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 153.125
+          Max Intensity: 255
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: GlobalMap
@@ -150,7 +153,7 @@ Visualization Manager:
               Scale: 1
               Value: true
             Value: true
-          Enabled: true
+          Enabled: false
           Keep: 1
           Name: LIO
           Position Tolerance: 0.10000000149011612
@@ -171,6 +174,45 @@ Visualization Manager:
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /liorf/mapping/odometry
+          Value: false
+        - Angle Tolerance: 0.10000000149011612
+          Class: rviz_default_plugins/Odometry
+          Covariance:
+            Orientation:
+              Alpha: 0.5
+              Color: 255; 255; 127
+              Color Style: Unique
+              Frame: Local
+              Offset: 1
+              Scale: 1
+              Value: true
+            Position:
+              Alpha: 0.30000001192092896
+              Color: 204; 51; 204
+              Scale: 1
+              Value: true
+            Value: true
+          Enabled: true
+          Keep: 100
+          Name: GPS
+          Position Tolerance: 0.10000000149011612
+          Shape:
+            Alpha: 1
+            Axes Length: 1
+            Axes Radius: 0.10000000149011612
+            Color: 255; 25; 0
+            Head Length: 0.30000001192092896
+            Head Radius: 0.10000000149011612
+            Shaft Length: 1
+            Shaft Radius: 0.05000000074505806
+            Value: Axes
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            Filter size: 10
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /liorf/mapping/gps_odom
           Value: true
       Enabled: true
       Name: Mapping
@@ -191,6 +233,35 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
+      Value: true
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Filter (blacklist): ""
+      Filter (whitelist): ""
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+        lidar_link:
+          Value: true
+        livox_frame:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
+      Marker Scale: 11
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        map:
+          odom:
+            lidar_link:
+              {}
+            livox_frame:
+              {}
+      Update Interval: 0
       Value: true
   Enabled: true
   Global Options:
@@ -235,25 +306,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 36.451114654541016
+      Distance: 16.11966323852539
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -42.353328704833984
-        Y: 3.5291190147399902
-        Z: 14.546088218688965
+        X: -12.442534446716309
+        Y: 2.104621171951294
+        Z: 1.208177089691162
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9403984546661377
+      Pitch: 1.3803982734680176
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 1.1353996992111206
+      Yaw: 6.078584671020508
     Saved: ~
 Window Geometry:
   Displays:

@@ -7,7 +7,7 @@
     pointCloudTopic: "/livox/lidar"
     imuTopic: "/livox/imu"
     odomTopic: "odometry/imu"
-    gpsTopic: "odometry/gpsz"
+    gpsTopic: "gnss_ksxt"
 
     # Frames
     lidarFrame: "livox_frame"
@@ -17,9 +17,13 @@
 
     # GPS Settings
     useImuHeadingInitialization: false
-    useGpsElevation: false
+    useGpsElevation: true
     gpsCovThreshold: 2.0
     poseCovThreshold: 25.0
+    gpsExtrinsicTrans: [0.0, 0.0, 0.0]
+    gpsExtrinsicRot: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+    gpsInitXYZ: [185262.036962, 2500433.565770, 35.149800] 
+    gpsCentralMeridian: 117
 
     # Export settings
     savePCD: false
@@ -73,7 +77,7 @@
     surroundingKeyframeSearchRadius: 50.0
 
     # Loop closure
-    loopClosureEnableFlag: false
+    loopClosureEnableFlag: true
     loopClosureFrequency: 1.0
     surroundingKeyframeSize: 50
     historyKeyframeSearchRadius: 15.0
