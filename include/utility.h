@@ -37,8 +37,8 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <tf2_eigen/tf2_eigen.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_eigen/tf2_eigen.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
  
 #include <vector>
 #include <cmath>
@@ -65,7 +65,7 @@ typedef pcl::PointXYZI PointType;
 // <!-- liorf_localization_yjz_lucky_boy -->
 std::shared_ptr<CommonLib::common_lib> common_lib_;
 
-enum class SensorType { VELODYNE, OUSTER, LIVOX, ROBOSENSE, MULRAN};
+enum class SensorType { VELODYNE, OUSTER, LIVOX, MID360, ROBOSENSE, MULRAN};
 
 class ParamServer : public rclcpp::Node
 {
@@ -208,7 +208,12 @@ public:
         else if (sensorStr == "livox")
         {
             sensor = SensorType::LIVOX;
-        } else if  (sensorStr == "robosense") {
+        }
+        else if (sensorStr == "mid360")
+        {
+            sensor = SensorType::MID360;
+        }
+        else if  (sensorStr == "robosense") {
             sensor = SensorType::ROBOSENSE;
         }
         else if (sensorStr == "mulran")
@@ -218,7 +223,7 @@ public:
         else {
             RCLCPP_ERROR_STREAM(
                 get_logger(),
-                "Invalid sensor type (must be either 'velodyne' or 'ouster' or 'livox' or 'robosense' or 'mulran'): " << sensorStr);
+                "Invalid sensor type (must be either 'velodyne' or 'ouster' or 'livox' or 'mid360' or 'robosense' or 'mulran'): " << sensorStr);
             rclcpp::shutdown();
         }
 

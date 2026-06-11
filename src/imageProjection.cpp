@@ -43,6 +43,60 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(RobosensePointXYZIRT,
       (uint16_t, ring, ring)(double, timestamp, timestamp)
 )
 
+namespace livox_ros {
+struct Point {
+    float x{0.f};
+    float y{0.f};
+    float z{0.f};
+    float intensity{0.f};
+    uint8_t tag{0};
+    uint8_t line{0};
+    double timestamp{0.0};
+};
+
+inline void fromROSMsg(const sensor_msgs::msg::PointCloud2 &msg, pcl::PointCloud<Point> &cloud)
+{
+    cloud.header = pcl_conversions::toPCL(msg.header);
+    cloud.width = msg.width;
+    cloud.height = msg.height;
+    cloud.is_dense = msg.is_dense;
+    cloud.points.resize(msg.width * msg.height);
+
+    int x_offset = -1, y_offset = -1, z_offset = -1, intensity_offset = -1;
+    int tag_offset = -1, line_offset = -1, timestamp_offset = -1;
+    for (const auto &field : msg.fields) {
+        if (field.name == "x") x_offset = static_cast<int>(field.offset);
+        else if (field.name == "y") y_offset = static_cast<int>(field.offset);
+        else if (field.name == "z") z_offset = static_cast<int>(field.offset);
+        else if (field.name == "intensity") intensity_offset = static_cast<int>(field.offset);
+        else if (field.name == "tag") tag_offset = static_cast<int>(field.offset);
+        else if (field.name == "line") line_offset = static_cast<int>(field.offset);
+        else if (field.name == "timestamp") timestamp_offset = static_cast<int>(field.offset);
+    }
+
+    if (x_offset < 0 || y_offset < 0 || z_offset < 0 || intensity_offset < 0 || timestamp_offset < 0) {
+        cloud.points.clear();
+        return;
+    }
+
+    for (size_t i = 0; i < cloud.points.size(); ++i) {
+        const uint8_t *ptr = msg.data.data() + i * msg.point_step;
+        auto &p = cloud.points[i];
+        p.x = *reinterpret_cast<const float *>(ptr + x_offset);
+        p.y = *reinterpret_cast<const float *>(ptr + y_offset);
+        p.z = *reinterpret_cast<const float *>(ptr + z_offset);
+        p.intensity = *reinterpret_cast<const float *>(ptr + intensity_offset);
+        if (tag_offset >= 0) {
+            p.tag = *(ptr + tag_offset);
+        }
+        if (line_offset >= 0) {
+            p.line = *(ptr + line_offset);
+        }
+        p.timestamp = *reinterpret_cast<const double *>(ptr + timestamp_offset);
+    }
+}
+}  // namespace livox_ros
+
 // mulran datasets
 struct MulranPointXYZIRT {
     PCL_ADD_POINT4D
@@ -257,6 +311,42 @@ public:
                 dst.time = static_cast<float>(src.t);
             }
         } // <!-- liorf_yjz_lucky_boy -->
+        else if (sensor == SensorType::MID360) {
+            pcl::PointCloud<livox_ros::Point> tmpMid360CloudIn;
+            livox_ros::fromROSMsg(currentCloudMsg, tmpMid360CloudIn);
+            const int plsize = static_cast<int>(tmpMid360CloudIn.size());
+            laserCloudIn->points.clear();
+            laserCloudIn->points.reserve(plsize);
+            const double timebase = plsize > 0 ? tmpMid360CloudIn.points[0].timestamp : 0.0;
+            for (int i = 0; i < plsize; ++i) {
+                const auto &src = tmpMid360CloudIn.points[i];
+                if (!(((src.tag & 0x30) == 0x10) || ((src.tag & 0x30) == 0x00))) {
+                    continue;
+                }
+                if (i > 0) {
+                    const auto &prev = tmpMid360CloudIn.points[i - 1];
+                    if ((std::abs(src.x - prev.x) < 1e-7) && (std::abs(src.y - prev.y) < 1e-7) &&
+                        (std::abs(src.z - prev.z) < 1e-7)) {
+                        continue;
+                    }
+                }
+                const float range_sq = src.x * src.x + src.y * src.y + src.z * src.z;
+                if (range_sq < lidarMinRange * lidarMinRange || range_sq > lidarMaxRange * lidarMaxRange) {
+                    continue;
+                }
+
+                auto &dst = laserCloudIn->points.emplace_back();
+                dst.x = src.x;
+                dst.y = src.y;
+                dst.z = src.z;
+                dst.intensity = src.intensity;
+                dst.ring = src.line;
+                dst.time = static_cast<float>((src.timestamp - timebase) * 1e-9);
+            }
+            laserCloudIn->width = laserCloudIn->points.size();
+            laserCloudIn->height = 1;
+            laserCloudIn->is_dense = true;
+        }
         else if (sensor == SensorType::ROBOSENSE) {
             pcl::PointCloud<RobosensePointXYZIRT>::Ptr tmpRobosenseCloudIn(new pcl::PointCloud<RobosensePointXYZIRT>());
             // Convert to robosense format
@@ -284,6 +374,10 @@ public:
         // get timestamp
         cloudHeader = currentCloudMsg.header;
         timeScanCur = rclcpp::Time(cloudHeader.stamp).seconds();
+        if (laserCloudIn->points.empty()) {
+            RCLCPP_WARN(get_logger(), "Point cloud is empty after preprocessing.");
+            return false;
+        }
         timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
 
         // check dense flag
@@ -294,22 +388,24 @@ public:
         }
 
         // check ring channel
-        static int ringFlag = 0;
-        if (ringFlag == 0)
-        {
-            ringFlag = -1;
-            for (int i = 0; i < (int)currentCloudMsg.fields.size(); ++i)
+        if (sensor != SensorType::MID360) {
+            static int ringFlag = 0;
+            if (ringFlag == 0)
             {
-                if (currentCloudMsg.fields[i].name == "ring")
+                ringFlag = -1;
+                for (int i = 0; i < (int)currentCloudMsg.fields.size(); ++i)
                 {
-                    ringFlag = 1;
-                    break;
+                    if (currentCloudMsg.fields[i].name == "ring")
+                    {
+                        ringFlag = 1;
+                        break;
+                    }
                 }
-            }
-            if (ringFlag == -1)
-            {
-                RCLCPP_ERROR_STREAM(get_logger(), "Point cloud ring channel not available, please configure your point cloud data!");
-                rclcpp::shutdown();
+                if (ringFlag == -1)
+                {
+                    RCLCPP_ERROR_STREAM(get_logger(), "Point cloud ring channel not available, please configure your point cloud data!");
+                    rclcpp::shutdown();
+                }
             }
         }
 
@@ -317,12 +413,16 @@ public:
         if (deskewFlag == 0)
         {
             deskewFlag = -1;
-            for (auto &field : currentCloudMsg.fields)
-            {
-                if (field.name == "time" || field.name == "t")
+            if (sensor == SensorType::MID360) {
+                deskewFlag = 1;
+            } else {
+                for (auto &field : currentCloudMsg.fields)
                 {
-                    deskewFlag = 1;
-                    break;
+                    if (field.name == "time" || field.name == "t" || field.name == "timestamp")
+                    {
+                        deskewFlag = 1;
+                        break;
+                    }
                 }
             }
             if (deskewFlag == -1)

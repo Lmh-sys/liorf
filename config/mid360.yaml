@@ -1,0 +1,87 @@
+/**:
+  ros__parameters:
+    history_policy: "history_keep_last"
+    reliability_policy: "reliability_reliable"
+
+    # Topics (livox_ros_driver2 MID360 PointCloud2 mode)
+    pointCloudTopic: "/livox/lidar"
+    imuTopic: "/livox/imu"
+    odomTopic: "odometry/imu"
+    gpsTopic: "odometry/gpsz"
+
+    # Frames
+    lidarFrame: "livox_frame"
+    baselinkFrame: "livox_frame"
+    odometryFrame: "odom"
+    mapFrame: "map"
+
+    # GPS Settings
+    useImuHeadingInitialization: false
+    useGpsElevation: false
+    gpsCovThreshold: 2.0
+    poseCovThreshold: 25.0
+
+    # Export settings
+    savePCD: false
+    savePCDDirectory: "/Downloads/LOAM/"
+
+    # Sensor Settings (MID360: PointCloud2 with livox_ros::Point, see glio_mapping preprocess::mid360_handler)
+    sensor: mid360
+    N_SCAN: 96
+    Horizon_SCAN: 4000
+    downsampleRate: 1
+    point_filter_num: 2
+    lidarMinRange: 0.5
+    lidarMaxRange: 100.0
+
+    # IMU Settings (Livox MID360 built-in IMU, ~200 Hz)
+    imuType: 0
+    imuRate: 200.0
+    imuAccNoise: 0.1
+    imuGyrNoise: 0.1
+    imuAccBiasN: 0.0001
+    imuGyrBiasN: 0.0001
+    imuGravity: 9.80511
+    imuRPYWeight: 0.01
+
+    # Extrinsics: T_lb (lidar -> imu), aligned with glio_mapping mid360 config
+    extrinsicTrans: [-0.011, -0.02329, 0.04412]
+    extrinsicRot: [1.0, 0.0, 0.0,
+                   0.0, 1.0, 0.0,
+                   0.0, 0.0, 1.0]
+
+    extrinsicRPY: [1.0, 0.0, 0.0,
+                   0.0, 1.0, 0.0,
+                   0.0, 0.0, 1.0]
+
+    # Voxel filter params
+    mappingSurfLeafSize: 0.1
+    surroundingKeyframeMapLeafSize: 0.3
+    loopClosureICPSurfLeafSize: 0.3
+
+    z_tollerance: 1000.0
+    rotation_tollerance: 1000.0
+
+    # CPU Params
+    numberOfCores: 4
+    mappingProcessInterval: 0.0
+
+    # Surrounding map
+    surroundingkeyframeAddingDistThreshold: 0.5
+    surroundingkeyframeAddingAngleThreshold: 0.2
+    surroundingKeyframeDensity: 2.0
+    surroundingKeyframeSearchRadius: 50.0
+
+    # Loop closure
+    loopClosureEnableFlag: false
+    loopClosureFrequency: 1.0
+    surroundingKeyframeSize: 50
+    historyKeyframeSearchRadius: 15.0
+    historyKeyframeSearchTimeDiff: 30.0
+    historyKeyframeSearchNum: 25
+    historyKeyframeFitnessScore: 0.3
+
+    # Visualization
+    globalMapVisualizationSearchRadius: 1000.0
+    globalMapVisualizationPoseDensity: 1.0
+    globalMapVisualizationLeafSize: 0.5
